@@ -1,6 +1,5 @@
 #include <iostream>
 #include <fstream>
-#include <string>
 #include <queue>
 #include <unordered_map>
 #include <algorithm>
@@ -10,6 +9,8 @@ using namespace std;
 
 static unsigned char currentByte = 0;
 static int bitPosition = 0;
+static int compressedFileSize = 0;
+static int inputFileSize = 0;
 void writeBitToFile(ofstream &fileStream, bool bit)
 {
 	// Set or clear the bit in the current byte based on the 'bit' parameter
@@ -28,6 +29,7 @@ void writeBitToFile(ofstream &fileStream, bool bit)
 	if (bitPosition == 8)
 	{
 		fileStream.put(currentByte);
+		compressedFileSize++;
 		currentByte = 0;
 		bitPosition = 0;
 	}
@@ -103,7 +105,7 @@ public:
 
 		unordered_map<char, int> freq;
 		for (char &ch : text)
-			freq[ch]++;
+			freq[ch]++, inputFileSize++;
 
 		priority_queue<Node *, vector<Node *>, comp> pq;
 
@@ -159,12 +161,20 @@ public:
 		{
 			codesFile << 8 - bitPosition;
 			encodedFile.put(currentByte);
+			compressedFileSize++;
 		}
 		else
 			codesFile << 0;
 		codesFile.close();
 		encodedFile.close();
-		// Compression Ratio still to be done.
+	}
+	void compressionRatio(string fileName)
+	{
+		cout << endl;
+		cout << "File size of " + fileName + " : " << inputFileSize << endl;
+		cout << "File size of " + fileName + ".cmp : " << compressedFileSize << endl;
+		long double cratio = (long double)(compressedFileSize) / (long double)(inputFileSize)*100;
+		cout << "\nCompression Ratio achieved : " << cratio << " % ";
 	}
 };
 
@@ -184,9 +194,10 @@ int main()
 
 	Compress c;
 	c.buildHuffmanTree(text, filename);
+	c.compressionRatio(filename);
 
 	inputFile.close();
-	cout << "\nCompression Successful !!!";
+	cout << "\nCompression Successful !!!\n";
 	int v;
 	cout << "\nEnter any key to exit : ";
 	cin >> v;
