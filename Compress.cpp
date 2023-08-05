@@ -41,145 +41,133 @@ struct Node
 	Node *left, *right;
 };
 
-// Function to allocate a new tree node
-Node *getNode(char ch, int freq, Node *left, Node *right)
+class Compress
 {
-	Node *node = new Node();
-
-	node->ch = ch;
-	node->freq = freq;
-	node->left = left;
-	node->right = right;
-
-	return node;
-}
-
-// Comparison object to be used to order the heap
-struct comp
-{
-	bool operator()(const Node *l, const Node *r) const
+	// Comparison object to be used to order the heap
+	struct comp
 	{
-		// the highest priority item has the lowest frequency
-		return l->freq > r->freq;
+		bool operator()(const Node *l, const Node *r) const
+		{
+			// the highest priority item has the lowest frequency
+			return l->freq > r->freq;
+		}
+	};
+
+	bool isLeaf(Node *root)
+	{
+		return root->left == nullptr && root->right == nullptr;
+	}
+
+	// Function to allocate a new tree node
+	Node *getNode(char ch, int freq, Node *left, Node *right)
+	{
+		Node *node = new Node();
+
+		node->ch = ch;
+		node->freq = freq;
+		node->left = left;
+		node->right = right;
+
+		return node;
+	}
+
+public:
+	void encode(Node *root, string str, unordered_map<char, string> &huffmanCode, ofstream &codesFile)
+	{
+		if (root == nullptr)
+		{
+			return;
+		}
+
+		// found a leaf node
+		if (isLeaf(root))
+		{
+			if (str != EMPTY_STRING)
+				huffmanCode[root->ch] = str;
+			else
+				huffmanCode[root->ch] = "1";
+			codesFile << huffmanCode[root->ch] << ' ' << root->ch << endl;
+		}
+
+		encode(root->left, str + "0", huffmanCode, codesFile);
+		encode(root->right, str + "1", huffmanCode, codesFile);
+	}
+
+	void buildHuffmanTree(string &text, string filename)
+	{
+		if (text == EMPTY_STRING)
+		{
+			cout << "EMPTY FILE!!.\nNo Compression performed.";
+			return;
+		}
+
+		unordered_map<char, int> freq;
+		for (char &ch : text)
+			freq[ch]++;
+
+		priority_queue<Node *, vector<Node *>, comp> pq;
+
+		// Create a leaf node for each character and add it
+		// to the priority queue.
+		for (auto &pair : freq)
+			pq.push(getNode(pair.first, pair.second, nullptr, nullptr));
+
+		while (pq.size() != 1)
+		{
+			Node *left = pq.top();
+			pq.pop();
+			Node *right = pq.top();
+			pq.pop();
+
+			int sum = left->freq + right->freq;
+			pq.push(getNode('\0', sum, left, right));
+		}
+
+		// `root` stores pointer to the root of Huffman Tree
+		Node *root = pq.top();
+
+		// Traverse the Huffman Tree and store Huffman Codes
+		// in a map. Also, print them
+		unordered_map<char, string> huffmanCode;
+		ofstream codesFile, encodedFile;
+		codesFile.open("codes.txt");
+		encode(root, EMPTY_STRING, huffmanCode, codesFile);
+
+		cout << "Huffman Codes are:\n"
+			 << endl;
+		for (auto pair : huffmanCode)
+		{
+			cout << pair.first << " " << pair.second << endl;
+		}
+		codesFile << "Completed ";
+
+		// Write encoded string to file
+		string compressedFile = filename + ".cmp";
+		encodedFile.open(compressedFile, ios::binary);
+
+		for (char &ch : text)
+		{
+			string binaryCode = huffmanCode[ch];
+			for (char &bit : binaryCode)
+				if (bit == '1')
+					writeBitToFile(encodedFile, true);
+				else
+					writeBitToFile(encodedFile, false);
+		}
+
+		if (currentByte)
+		{
+			codesFile << 8 - bitPosition;
+			encodedFile.put(currentByte);
+		}
+		else
+			codesFile << 0;
+		codesFile.close();
+		encodedFile.close();
+		// Compression Ratio still to be done.
 	}
 };
 
-// Utility function to check if Huffman Tree contains only a single node
-bool isLeaf(Node *root)
-{
-	return root->left == nullptr && root->right == nullptr;
-}
-
-// Traverse the Huffman Tree and store Huffman Codes in a map.
-void encode(Node *root, string str, unordered_map<char, string> &huffmanCode, ofstream &codesFile)
-{
-	if (root == nullptr)
-	{
-		return;
-	}
-
-	// found a leaf node
-	if (isLeaf(root))
-	{
-		if (str != EMPTY_STRING)
-			huffmanCode[root->ch] = str;
-		else
-			huffmanCode[root->ch] = "1";
-		codesFile << huffmanCode[root->ch] << ' ' << root->ch << endl;
-	}
-
-	encode(root->left, str + "0", huffmanCode, codesFile);
-	encode(root->right, str + "1", huffmanCode, codesFile);
-}
-
-// Builds Huffman Tree and decodes the given input text
-void buildHuffmanTree(string &text, string filename)
-{
-	// base case: empty string
-	if (text == EMPTY_STRING)
-	{
-		cout << "EMPTY FILE!!.\nNo Compression performed.";
-		return;
-	}
-
-	// count the frequency of appearance of each character
-	// and store it in a map
-	unordered_map<char, int> freq;
-	for (char &ch : text)
-		freq[ch]++;
-
-	// Create a priority queue to store live nodes of the Huffman tree
-	priority_queue<Node *, vector<Node *>, comp> pq;
-
-	// Create a leaf node for each character and add it
-	// to the priority queue.
-	for (auto &pair : freq)
-		pq.push(getNode(pair.first, pair.second, nullptr, nullptr));
-
-	// do till there is more than one node in the queue
-	while (pq.size() != 1)
-	{
-		// Remove the two nodes of the highest priority
-		// (the lowest frequency) from the queue
-
-		Node *left = pq.top();
-		pq.pop();
-		Node *right = pq.top();
-		pq.pop();
-
-		// create a new internal node with these two nodes as children and
-		// with a frequency equal to the sum of the two nodes' frequencies.
-		// Add the new node to the priority queue.
-
-		int sum = left->freq + right->freq;
-		pq.push(getNode('\0', sum, left, right));
-	}
-
-	// `root` stores pointer to the root of Huffman Tree
-	Node *root = pq.top();
-
-	// Traverse the Huffman Tree and store Huffman Codes
-	// in a map. Also, print them
-	unordered_map<char, string> huffmanCode;
-	ofstream codesFile, encodedFile;
-	codesFile.open("codes.txt");
-	encode(root, EMPTY_STRING, huffmanCode, codesFile);
-
-	cout << "Huffman Codes are:\n"
-		 << endl;
-	for (auto pair : huffmanCode)
-	{
-		cout << pair.first << " " << pair.second << endl;
-	}
-	codesFile << "Completed ";
-
-	// Write encoded string to file
-	string compressedFile = filename + ".cmp";
-	encodedFile.open(compressedFile, ios::binary);
-
-	for (char &ch : text)
-	{
-		string binaryCode = huffmanCode[ch];
-		for (char &bit : binaryCode)
-			if (bit == '1')
-				writeBitToFile(encodedFile, true);
-			else
-				writeBitToFile(encodedFile, false);
-	}
-
-	if (currentByte)
-	{
-		codesFile << 8 - bitPosition;
-		encodedFile.put(currentByte);
-	}
-	else
-		codesFile << 0;
-	codesFile.close();
-	encodedFile.close();
-	// Compression Ratio still to be done.
-}
-
-// Huffman coding algorithm implementation in C++
 int main()
 {
 	string filename;
@@ -193,7 +181,9 @@ int main()
 
 	string text;
 	getline(inputFile, text);
-	buildHuffmanTree(text, filename);
+
+	Compress c;
+	c.buildHuffmanTree(text, filename);
 
 	inputFile.close();
 	cout << "\nCompression Successful !!!";
